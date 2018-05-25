@@ -7,16 +7,15 @@
         </div>
         <div class="input-group">
           <div class="group">
-            <input type="email" name="email" v-model="email" required>
+            <input type="email" name="email" v-model="email" required disabled="disabled">
             <span class="highlight"></span>
             <span class="bar"></span>
-            <label>邮箱</label>
           </div>
           <div class="group">
             <input type="password" name="password" v-model="password" required>
             <span class="highlight"></span>
             <span class="bar"></span>
-            <label>密码</label>
+            <label>新密码</label>
           </div>
           <div class="group">
             <input type="password" name="confirm-password" v-model="confirmPwd" required @keyup.enter="register">
@@ -26,7 +25,7 @@
           </div>
         </div>
         <div class="login-button-group">
-          <button v-on:click="confirm">重置密码</button>
+          <button v-on:click="restpass">重置密码</button>
         </div>
         <p style="margin-top: 20px;text-align: center;cursor: pointer;">
           <a href="/#/register" style="margin-right:10px;color: rgba(0, 0, 0,0.6);">注册</a>
@@ -48,15 +47,48 @@
       }
     },
     mounted(){
-      this.confirm()
+      this.validateUrl()
     },
     methods:{
-      confirm(){
-        console.log(this.$route.query.active)
+      validateUrl(){
+        let code = this.$route.query.active
+        if(!code){
+          this.$router.push('/login')
+        }else{
+          this.$http.get('/resetpass/'+code).then(res => {
+            if(res.status !== 200 || res.data.errorCode !== 2020){
+              let msg = res.data.message ? res.data.message : '抱歉，出错了~'
+              this.$Message.error(msg)
+              this.$router.push('/login')
+            }else{
+              this.email = res.data.email
+            }
+          }).catch(e => {
+            this.$Message.error("抱歉，出错了~")
+            console.log(e)
+          })
+        }
       },
-      reset(){
-        if(this.validate()){
-
+      restpass(){
+        const that = this
+        if(that.validate()){
+          that.$http.post('/resetpass', {
+            email: that.email,
+            password: that.password,
+            password_confirm:that.confirmPwd,
+            code: this.$route.query.active
+          }).then(res => {
+            if(res.status !== 200 || res.data.errorCode !== 2020){
+              let msg = res.data.message ? res.data.message : '抱歉，出错了~'
+              that.$Message.error(msg);
+            }else{
+              that.$Message.success(res.data.message);
+              that.$router.push('/login')
+            }
+          })
+            .catch(function (e) {
+              console.log(e)
+            });
         }
       },
       validate(){

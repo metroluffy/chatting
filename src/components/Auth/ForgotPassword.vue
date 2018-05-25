@@ -36,7 +36,7 @@
     methods:{
       sendmail(){
         if(this.validate()){
-          this.$http.post('/resetpwd', {
+          this.$http.post('/resetpass/sendmail', {
             email: this.email,
           }).then(res => {
             if(res.status !== 200 || res.data.errorCode !== 2000){

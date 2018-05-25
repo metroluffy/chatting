@@ -1,11 +1,13 @@
 //controllers/authController.js
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const dayjs = require('dayjs')
 const crypto = require('crypto')
 const crypto_config = require('../config/config').crypto_config;
 const MAIL = require('../config/config').MAIL;
 const APP = require('../config/config').APP;
 const User = require('../models/User')
+const Auth = require('../models/Auth')
 
 
 async function login(ctx,next){
@@ -126,7 +128,7 @@ async function sendResetMail(ctx,next) {
     // send mail with defined transport object
     let re = await transporter.sendMail(mailOptions).then(function(info){
       // console.log(info);
-      let re = User.sendPassResetMail(userInfo.email,secret)
+      let re = Auth.setPassResetRecord(userInfo.email,secret)
       if(!re){
         return {
           errorCode: 2015,
@@ -158,6 +160,80 @@ async function sendResetMail(ctx,next) {
   return next()
 }
 
+async function showResetPassPage(ctx,next){
+  let code = ctx.params.code
+  let res = await Auth.validatePassResetCode(code)
+  if(res.length > 0){
+    if(dayjs(res[0].created_at).add(8,'hour').add(15,'minute').valueOf()>Date.now()){
+      ctx.body = {
+        errorCode: 2020,
+        message: '邮件验证通过!',
+        email: res[0].email
+      }
+    }else{
+      ctx.body = {
+        errorCode: 2025,
+        message: '邮件已过期或不存在!'
+      }
+    }
+  }else{
+    ctx.body = {
+      errorCode: 2024,
+      message: '邮件已过期或不存在!'
+    }
+  }
+  return next()
+}
+
+async function ResetPass(ctx,next) {
+  const data = ctx.request.body
+  if(data.code && data.code !== ""){
+    if(data.password === data.password_confirm){
+      let res = await Auth.validatePassResetCode(data.code)
+      if(res.length > 0){
+        if(res[0].email === data.email){
+          let u = await User.updatePassword(data.email,data.password)
+          if(u[0] === 1){
+            await Auth.deletePassResetCode(data.email)
+            ctx.body = {
+              errorCode: 2020,
+              message: '密码修改成功!'
+            }
+          }else{
+            ctx.body = {
+              errorCode: 2021,
+              message: '密码修改失败!请稍后重试发送密码重置邮件'
+            }
+          }
+
+        }else{
+          ctx.body = {
+            errorCode: 2029,
+            message: '邮件不正确!'
+          }
+        }
+      }else{
+        ctx.body = {
+          errorCode: 2024,
+          message: '邮件已过期或不存在!'
+        }
+      }
+    }else{
+      ctx.body = {
+        errorCode: 2027,
+        message: '两次密码输入不正确!'
+      }
+    }
+
+  }else{
+    ctx.body = {
+      errorCode: 2021,
+      message: '非法请求!'
+    }
+  }
+  return next()
+}
+
 function compareSync(salt,secret){
   let a = crypto.createHmac('sha256', salt)
     .update(crypto_config.update)
@@ -167,5 +243,7 @@ function compareSync(salt,secret){
 module.exports = {
   login,
   register,
-  sendResetMail
+  sendResetMail,
+  showResetPassPage,
+  ResetPass
 }

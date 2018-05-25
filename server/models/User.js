@@ -88,18 +88,22 @@ async function searchUser(key){
   })
 }
 
+async function updatePassword(email,password) {
+  const secret = crypto.createHmac('sha256', password)
+    .update(crypto_config.update)
+    .digest('hex')
+  return await User.update({
+    password: secret
+  },{
+    where: {
+      email: email
+    }
+  })
+}
+
 async function addFriend(userID,friendID){
   try{
     return await sequelize.query('INSERT INTO `user_friend` (userID,friendID) VALUES('+userID+','+friendID+'),('+friendID+','+userID+')',{ type:Sequelize.QueryTypes.INSERT})
-  }catch (e) {
-    console.log(e)
-    return false
-  }
-}
-
-async function sendPassResetMail(mail,token){
-  try{
-    return await sequelize.query('INSERT INTO `password_reset` (email,token,created_at) VALUES("'+mail+'","'+token+'",now())',{ type:Sequelize.QueryTypes.INSERT})
   }catch (e) {
     console.log(e)
     return false
@@ -113,5 +117,5 @@ module.exports = {
   createUser,
   searchUser,
   addFriend,
-  sendPassResetMail
+  updatePassword
 }
